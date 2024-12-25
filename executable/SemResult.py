@@ -92,9 +92,6 @@ def scrape_results(result):
         }
 
 
-def main(htno,sem):
-    result = asyncio.run(get_symbol(htno,sem))
-    return result
 
 
 

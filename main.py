@@ -21,6 +21,6 @@ def read_item(ht: Union[str, None] = None):
 
 @app.get("/results/semester")
 def read_item(htno: Union[str, None] = None, sem: Union[str, None] = None):
-    result = main(htno,sem)
+    result = asyncio.run(main(htno, sem))
     return result if result else {"result": "No results found"}
 
