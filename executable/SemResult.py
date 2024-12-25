@@ -6,8 +6,8 @@ import executable.Codes as codes
 
 
 url = "https://results.jntuh.ac.in/results/resultAction?degree={}&examCode={}&etype=r16&result={}&grad=null&type=intgrade&htno={}"
-results = {"Details": {}, "Result": {}}
 
+results = {"Details": {}, "Result": {}}
 exam_codes = codes.get_exam_codes()
 etype = ['null', 'gradercrv']
 
@@ -27,18 +27,20 @@ def get_result(session, hallticket,sem):
     ]
     return tasks
 
-async def get_symbol(hallticket: str,sem: str):
+async def get_symbol(hallticket: str, sem: str):
+    # Reset the results dictionary before starting the new request
+    global results
+    results = {"Details": {}, "Result": {}}
+    
     async with aiohttp.ClientSession() as session:
-        tasks = get_result(session, hallticket,sem)
+        tasks = get_result(session, hallticket, sem)
         responses = await asyncio.gather(*tasks)
 
         for response in responses:
             result = await response.text()
             scrape_results(result)
 
-
-
-    return results          
+    return results   
 
 def scrape_results(result):
     soup = BeautifulSoup(result, "html.parser")
