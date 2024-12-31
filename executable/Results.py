@@ -1,4 +1,4 @@
-import requests
+import requests, json
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
@@ -48,7 +48,8 @@ class Results:
                 except Exception as e:
                     return "Failed to fetch URL"
 
-        return self.results
+        
+        return json.dumps(self.results)
 
     @lru_cache(maxsize=100)  # Cache results to avoid duplicate requests
     def fetch_url(self, url):

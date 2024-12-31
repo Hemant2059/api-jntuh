@@ -1,4 +1,4 @@
-import asyncio
+import asyncio, json
 import aiohttp
 from bs4 import BeautifulSoup
 
@@ -38,7 +38,8 @@ async def get_symbol(hallticket: str, sem: str):
             result = await response.text()
             scrape_results(result)
 
-    return results   
+      
+    return json.dumps(results)
 
 def scrape_results(result):
     soup = BeautifulSoup(result, "html.parser")

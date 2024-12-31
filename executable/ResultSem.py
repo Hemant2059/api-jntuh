@@ -1,4 +1,4 @@
-import requests
+import requests, json
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
@@ -45,11 +45,11 @@ class Results:
                 try:
                     html_content = future.result()
                     if html_content:
-                        self.scrape_results(sem, html_content)
+                        self.scrape_results(html_content)
                 except Exception as e:
                     print(f"Error processing examCode {exam_code}: {e}")
 
-        return self.results
+        return json.dumps(self.results)
 
     @lru_cache(maxsize=100)  # Cache results to avoid duplicate requests
     def fetch_url(self, url):
@@ -64,7 +64,7 @@ class Results:
             print(f"Request failed for URL {url}: {e}")
             return None
 
-    def scrape_results(self, semester_code, response):
+    def scrape_results(self, response):
         soup = BeautifulSoup(response, "html.parser")
         if soup.find("form", {"id": "myForm"}):
             
@@ -100,11 +100,10 @@ class Results:
             "total": column_names.index("TOTAL") if "TOTAL" in column_names else None,
         }
 
-        self.results["Result"].setdefault(semester_code, {})
         for row in results_table[1:]:
             cells = row.find_all("td")
             subject_code = cells[indices["subject_code"]].get_text()
-            self.results["Result"][semester_code][subject_code] = {
+            self.results["Result"][subject_code] = {
                 "name": cells[indices["subject_name"]].get_text(),
                 "grade": cells[indices["grade"]].get_text(),
                 "credits": cells[indices["credits"]].get_text(),
