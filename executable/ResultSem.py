@@ -13,7 +13,7 @@ class Results:
         self.exam_codes = Codes.get_exam_codes()
         self.session = requests.Session()  # Use session to reuse connections
 
-    def get_result(self, roll_number):
+    def get_result(self, roll_number,sem):
         self.roll_number = roll_number
         # Determine degree and exam codes
         graduation_year = int(self.roll_number[:2])
@@ -23,30 +23,31 @@ class Results:
             if graduation_year >= 23 or (graduation_year == 22 and self.roll_number[4] != "5")
             else ("R18" if degree == "btech" else "R17")
         )
-        exam_codes = self.exam_codes[degree][regulation] if regulation in self.exam_codes[degree] else {}
-        if self.roll_number[4] == "5":
-            exam_codes.pop("1-1")  # Remove 1-1 semester for lateral entry students
-            exam_codes.pop("1-2")  # Remove 1-1 semester for lateral entry students
+        exam_codes = self.exam_codes[degree][regulation][sem] if sem in self.exam_codes[degree][regulation] else []
+        if self.roll_number[4] == "5" and (sem == "1-1" or sem == "1-2"):
+            return "No data available for this semester"
+
+        
+
 
 
         # Prepare tasks
         tasks = []
-        with ThreadPoolExecutor(max_workers=20) as executor:  # Increase max_workers for better parallelism
-            for semester, codes in exam_codes.items():
-                for exam_code in codes:
+        with ThreadPoolExecutor(max_workers=30) as executor:  # Increase max_workers for better parallelism
+            
+            for exam_code in exam_codes:
                     for result_type in ["null", "gradercrv"]:
-                        payload = f"{self.url}?examCode={exam_code}&etype=r16&result={result_type}&grad=null&type=intgrade&degree={degree}&htno={self.roll_number}"
-                       
-                        tasks.append((semester, exam_code, executor.submit(self.fetch_url, payload)))
+                        payload = f"{self.url}?examCode={exam_code}&etype=r16&result={result_type}&grad=null&type=intgrade&degree={degree}&htno={self.roll_number}"                       
+                        tasks.append((exam_code, executor.submit(self.fetch_url, payload)))
 
             # Process results
-            for semester, exam_code, future in tasks:
+            for exam_code, future in tasks:
                 try:
                     html_content = future.result()
                     if html_content:
-                        self.scrape_results(semester, html_content)
+                        self.scrape_results(sem, html_content)
                 except Exception as e:
-                    return "Failed to fetch URL"
+                    print(f"Error processing examCode {exam_code}: {e}")
 
         return self.results
 
@@ -57,15 +58,16 @@ class Results:
             if response.status_code == 200:
                 return response.content
             else:
-                return "Failed to fetch URL"
-            
+                print(f"Failed to fetch URL {url}, status code: {response.status_code}")
+                return None
         except requests.exceptions.RequestException as e:
-           
-            return "Failed to fetch URL"
+            print(f"Request failed for URL {url}: {e}")
+            return None
 
     def scrape_results(self, semester_code, response):
         soup = BeautifulSoup(response, "html.parser")
         if soup.find("form", {"id": "myForm"}):
+            
             return
 
         # Extract student details

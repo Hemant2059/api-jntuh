@@ -17,9 +17,7 @@ def get_result(session, hallticket,sem):
     graduation_year = int(hallticket[:2])
     degree = "btech" if hallticket[5] == "A" else "bpharmacy"
     regulation = "R22" if graduation_year >= 23 or (graduation_year == 22 and hallticket[4] != "5") else ("R18" if degree == "btech" else "R17")
-    e_code = exam_codes[degree][regulation][sem]
-
-    
+    e_code = exam_codes[degree][regulation][sem] if sem in exam_codes[degree][regulation] else []    
     
     tasks = [
         session.get(url.format(degree, code, e, hallticket), ssl=False)
