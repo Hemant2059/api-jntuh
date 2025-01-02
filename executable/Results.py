@@ -49,7 +49,7 @@ class Results:
                     return "Failed to fetch URL"
 
         
-        return json.dumps(self.results)
+        return self.results
 
     @lru_cache(maxsize=100)  # Cache results to avoid duplicate requests
     def fetch_url(self, url):

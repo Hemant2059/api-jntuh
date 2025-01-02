@@ -39,7 +39,7 @@ async def get_symbol(hallticket: str, sem: str):
             scrape_results(result)
 
       
-    return json.dumps(results)
+    return results
 
 def scrape_results(result):
     soup = BeautifulSoup(result, "html.parser")

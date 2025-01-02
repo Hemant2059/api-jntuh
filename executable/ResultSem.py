@@ -49,7 +49,10 @@ class Results:
                 except Exception as e:
                     print(f"Error processing examCode {exam_code}: {e}")
 
-        return json.dumps(self.results)
+        if not self.results["Details"]["Roll_No"]:
+            self.results["Details"]["Roll_No"] = "Invalid Hallticket Number"
+
+        return self.results
 
     @lru_cache(maxsize=100)  # Cache results to avoid duplicate requests
     def fetch_url(self, url):
@@ -66,7 +69,7 @@ class Results:
 
     def scrape_results(self, response):
         soup = BeautifulSoup(response, "html.parser")
-        if soup.find("form", {"id": "myForm"}):
+        if soup.find("form", {"id": "myForm"}):            
             
             return
 
