@@ -13,10 +13,9 @@ class Results:
         self.results = {"Details": {}, "Result": {}}
         self.exam_codes = Codes.get_exam_codes()
         self.session = self.create_session()
-        self.cache = {}  # Initialize cache as an empty dictionary
+        self.cache = {}
 
     def create_session(self):
-        """ Create a session with connection pooling and retry mechanism. """
         session = requests.Session()
         retry = Retry(
             total=3,
@@ -28,7 +27,7 @@ class Results:
         session.mount('https://', adapter)
         return session
 
-    @lru_cache(maxsize=100)  # Cache results to avoid duplicate requests
+    @lru_cache(maxsize=100)
     def get_cached_result(self, roll_number, sem):
         return self.get_result(roll_number, sem)
 
@@ -47,35 +46,30 @@ class Results:
             else ("R18" if degree == "btech" else "R17")
         )
         exam_codes = self.exam_codes[degree][regulation].get(sem, [])
-        if self.roll_number[4] == "5" and (sem == "1-1" or sem == "1-2"):
+
+        if self.roll_number[4] == "5" and sem in ["1-1", "1-2"]:
             return "No data available for this semester"
 
-        tasks = []
-        passed_all_subjects = False
-        first_exam_code = exam_codes[0] if exam_codes else None
-        with ThreadPoolExecutor(max_workers=100) as executor:
-            for index, exam_code in enumerate(exam_codes):
-                if passed_all_subjects and exam_code != first_exam_code:
-                    break  # Skip checking other exam codes if all subjects are passed
-
+        with ThreadPoolExecutor(max_workers=50) as executor:
+            for exam_code in exam_codes:
                 for result_type in ["null", "gradercrv"]:
                     payload = f"{self.url}?examCode={exam_code}&etype=r16&result={result_type}&grad=null&type=intgrade&degree={degree}&htno={self.roll_number}"
-                    tasks.append((exam_code, executor.submit(self.fetch_url, payload)))
-
-            for exam_code, future in tasks:
-                try:
+                    future = executor.submit(self.fetch_url, payload)
                     html_content = future.result()
+
                     if html_content:
                         self.scrape_results(html_content)
-                        if exam_code == first_exam_code and self.all_subjects_passed():
-                            passed_all_subjects = True  # Stop checking other exam codes
-                            print(exam_code)
-                except Exception as e:
-                    print(f"Error processing examCode {exam_code}: {e}")
 
-        if not self.results["Details"].get("Roll_No"):
-            self.results["Details"]["Roll_No"] = "Invalid Hallticket Number"
+                        if not self.results["Details"].get("Roll_No"):
+                            continue  # No valid data, try next exam code
 
+                        if self.all_subjects_passed():
+                            self.cache[(roll_number, sem)] = self.results
+                            return self.results  # Passed all subjects, return result
+                        # else:
+                        #     self.results = {"Details": {}, "Result": {}}  # Reset results for next exam code
+
+        self.results["Details"]["Roll_No"] = "Invalid Hallticket Number"
         self.cache[(roll_number, sem)] = self.results
         return self.results
 
@@ -85,14 +79,14 @@ class Results:
             if response.status_code == 200:
                 return response.content
             else:
-                return {"error":"Server Error"}
-        except requests.exceptions.RequestException as e:
-            return {"error":"Server Error"}
+                return None
+        except requests.exceptions.RequestException:
+            return None
 
     def scrape_results(self, response):
         soup = BeautifulSoup(response, "html.parser")
-        if soup.find("form", {"id": "myForm"}):            
-            return  # Return if no results (invalid form)
+        if soup.find("form", {"id": "myForm"}):
+            return
 
         details_table = soup.find_all("table")[0].find_all("tr")
         Htno = details_table[0].find_all("td")[1].get_text()
@@ -114,14 +108,13 @@ class Results:
             subject_code = cells[0].get_text()
             self.results["Result"][subject_code] = {
                 "name": cells[1].get_text(),
-                "internal":cells[2].get_text(),
-                "external":cells[3].get_text(),
-                "total":cells[4].get_text(),
+                "internal": cells[2].get_text(),
+                "external": cells[3].get_text(),
+                "total": cells[4].get_text(),
                 "grade": cells[5].get_text(),
                 "credits": cells[6].get_text(),
                 "rcrv": "Change in Grade" in cells[-1].get_text(),
             }
-    
+
     def all_subjects_passed(self):
-        """ Check if the student has passed all subjects. """
         return all(subject["grade"] not in ["F", "Ab"] for subject in self.results["Result"].values())
